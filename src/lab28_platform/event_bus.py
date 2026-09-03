@@ -266,10 +266,21 @@ class BatchConsumer:
         decoded: list[ConsumedMessage] = []
         poison: list[DeadLetterEnvelope] = []
         idle = 0
+        assignment_polls = 0
+        max_assignment_polls = max(10, idle_polls)
 
         while len(decoded) + len(poison) < max_messages and idle < idle_polls:
             message = self._consumer.poll(poll_timeout)
             if message is None:
+                # A new consumer group can need several polls before Kafka
+                # assigns its partitions. Those are join waits, not evidence
+                # that the topic is empty.
+                if (
+                    not self._consumer.assignment()
+                    and assignment_polls < max_assignment_polls
+                ):
+                    assignment_polls += 1
+                    continue
                 idle += 1
                 continue
             if message.error():

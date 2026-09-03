@@ -1,0 +1,35 @@
+Lab 28 fast/offline verification
+================================
+
+py -3.12 -m uv run pytest starter-tests -q
+....                                                                     [100%]
+4 passed in 0.20s
+
+py -3.12 -m uv run pytest tests -q
+........................................................................ [ 86%]
+...........                                                              [100%]
+83 passed in 10.91s
+
+py -3.12 -m uv run ruff check .
+All checks passed!
+
+py -3.12 -m uv run python scripts/verify_matrix.py
+OK    245 checks passed: contracts\integration-matrix.yaml matches the repository
+
+py -3.12 -m uv run python scripts/check_portability.py
+OK    supported workflow is host-path and shell independent
+
+py -3.12 -m uv run python scripts/validate_manifests.py
+Kubernetes and GitOps manifest contracts passed
+
+docker compose --env-file ports.template config --quiet
+PASS
+
+docker compose --env-file ports.template --profile full config --quiet
+PASS
+
+py -3.12 -m uv run pytest integration-tests -m "not gpu and not langsmith" -q
+56 passed, 16 deselected in 267.88s (0:04:27)
+
+py -3.12 -m uv run pytest integration-tests/test_trace_span_coverage.py -m langsmith -q
+1 passed, 4 deselected in 0.92s

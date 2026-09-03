@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from lab28_platform.contracts import IngestionEvent
+from lab28_platform.contracts import FEATURE_REFS, IngestionEvent
 
 
 def event_headers(
@@ -20,7 +20,10 @@ def event_headers(
     ``idempotency-key`` is always required.  Omit ``traceparent`` when no trace
     is active rather than sending an empty, invalid W3C header.
     """
-    raise NotImplementedError("TODO IP01/IP10: propagate trace and idempotency headers")
+    headers = [("idempotency-key", idempotency_key.encode("utf-8"))]
+    if traceparent:
+        headers.append(("traceparent", traceparent.encode("utf-8")))
+    return headers
 
 
 def dedupe_latest(events: Iterable[IngestionEvent]) -> list[IngestionEvent]:
@@ -29,14 +32,33 @@ def dedupe_latest(events: Iterable[IngestionEvent]) -> list[IngestionEvent]:
     Compare ``(occurred_at, event_id)`` so ties do not depend on Kafka delivery
     order.  The Spark Delta MERGE calls this through ``delta_store``.
     """
-    raise NotImplementedError("TODO IP03: prepare a replay-safe Delta MERGE source")
+    latest_events: dict[str, IngestionEvent] = {}
+    for event in events:
+        key = event.idempotency_key
+        # Tie break on (occurred_at, event_id)
+        if key not in latest_events:
+            latest_events[key] = event
+        else:
+            current = latest_events[key]
+            if (event.occurred_at, event.event_id) > (current.occurred_at, current.event_id):
+                latest_events[key] = event
+    return sorted(latest_events.values(), key=lambda e: e.idempotency_key)
 
 
 def feast_online_request(asker_id: str) -> dict[str, Any]:
     """Build the Feast ``/get-online-features`` request for ``asker_activity_v1``."""
-    raise NotImplementedError("TODO IP04: preserve the feature registry contract")
+    return {
+        "features": list(FEATURE_REFS),
+        "entities": {"asker_id": [asker_id]},
+        "full_feature_names": False,
+    }
 
 
 def readiness_status(probes: Iterable[dict[str, Any]]) -> str:
     """Return ``ready``, ``degraded`` or ``not_ready`` from probe severity."""
-    raise NotImplementedError("TODO IP07/IP08: implement explicit readiness semantics")
+    probes_list = list(probes)
+    if any(not probe.get("ready") and probe.get("mandatory") for probe in probes_list):
+        return "not_ready"
+    if any(not probe.get("ready") and not probe.get("mandatory") for probe in probes_list):
+        return "degraded"
+    return "ready"

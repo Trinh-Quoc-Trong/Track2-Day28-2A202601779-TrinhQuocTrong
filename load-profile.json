@@ -1,0 +1,20 @@
+{
+  "endpoint": "http://localhost:8080/ready",
+  "baseline": {
+    "requests": 50,
+    "workers": 1,
+    "status_counts": {"200": 50},
+    "latency_ms": {"p50": 271.2709, "p95": 297.2689, "p99": 538.9050}
+  },
+  "saturation": {
+    "requests": 200,
+    "workers": 8,
+    "status_counts": {"200": 22, "429": 178},
+    "latency_ms": {"p50": 4.1432, "p95": 374.7218, "p99": 435.5965}
+  },
+  "analysis": [
+    "The gateway deliberately rejects burst traffic above its 10 RPS limit with HTTP 429.",
+    "Accepted-request latency is dominated by synchronous deep dependency checks on the readiness route.",
+    "Production should retain the edge limit and separate lightweight pod readiness from deep diagnostics."
+  ]
+}
